@@ -1,13 +1,38 @@
-import { useLocation } from "react-router-dom";
+import { useContext, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { AuthContext } from "../context/AuthContext";
+import axios from "axios";
 
 export default function Profile() {
-  const location = useLocation();
+  const navigate = useNavigate();
+  const [message, setMessage] = useState("");
+  const { logout, token } = useContext(AuthContext);
+
+  useEffect(() => {
+    if (!token) {
+      console.log("token not found!");
+      logout();
+      return;
+    }
+
+    axios
+      .get("http://localhost:5000/profile", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      .then((res) => {
+        setMessage(res.data.message);
+      })
+      .catch((err) => {
+        console.error(err);
+        logout();
+      });
+  }, [token]);
 
   return (
-    <div className="profile-container">
-      <h2>Profile</h2>
-      <h4>username: </h4>
-      <h4>server name: </h4>
+    <div>
+      <h1>{message || "Loading..."}</h1>
     </div>
   );
 }
