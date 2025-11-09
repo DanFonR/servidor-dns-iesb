@@ -1,0 +1,5 @@
+sqlalchemy
+psycopg
+Flask
+flask-cors
+jwt

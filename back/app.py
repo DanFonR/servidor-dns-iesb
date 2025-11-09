@@ -2,10 +2,12 @@ import jwt
 import datetime
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from sql_conn import SQLServices
 
 app = Flask(__name__)
 CORS(app)
 SECRET_KEY = "supersecretkey"
+
 
 @app.route("/login", methods=["POST"])
 def login():
@@ -18,6 +20,7 @@ def login():
         )
         return jsonify({"token": token})
     return jsonify({"error": "Invalid credentials"}), 401
+
 
 @app.route("/profile", methods=["GET"])
 def profile():
@@ -33,6 +36,7 @@ def profile():
         return jsonify({"error": "Token expired"}), 401
     except jwt.InvalidTokenError:
         return jsonify({"error": "Invalid token"}), 401
+
 
 if __name__ == "__main__":
     app.run(debug=True)
