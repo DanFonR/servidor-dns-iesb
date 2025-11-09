@@ -3,19 +3,23 @@ import datetime
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from sql_conn import SQLServices
+from os import getenv
+
+BACKEND_KEY: str = getenv("BACKEND_KEY")
+ADMIN_USER: str = getenv("ADMIN_USER")
+ADMIN_PW: str = getenv("ADMIN_PW")
 
 app = Flask(__name__)
 CORS(app)
-SECRET_KEY = "supersecretkey"
 
 
 @app.route("/login", methods=["POST"])
 def login():
     data = request.get_json()
-    if data["username"] == "admin" and data["password"] == "1234":
+    if data["username"] == ADMIN_USER and data["password"] == ADMIN_PW:
         token = jwt.encode(
             {"user": data["username"], "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=1)},
-            SECRET_KEY,
+            BACKEND_KEY,
             algorithm="HS256"
         )
         return jsonify({"token": token})
@@ -30,7 +34,7 @@ def profile():
 
     token = auth_header.split(" ")[1]
     try:
-        decoded = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        decoded = jwt.decode(token, BACKEND_KEY, algorithms=["HS256"])
         return jsonify({"message": f"Welcome {decoded['user']}!"})
     except jwt.ExpiredSignatureError:
         return jsonify({"error": "Token expired"}), 401

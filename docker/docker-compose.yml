@@ -44,6 +44,9 @@ services:
             - db
         environment:
             DB_URL: postgresql+psycopg://redes_admin:S3rV3r!n0s@db:5432/app_db
+            BACKEND_KEY: ${BACKEND_KEY}
+            ADMIN_USER: ${ADMIN_USER}
+            ADMIN_PW: ${ADMIN_PW}
 
 networks:
     rede_front:
