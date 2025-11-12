@@ -1,11 +1,4 @@
 FROM postgres:latest
 
-COPY . /db/
-WORKDIR /db/
-
-ARG POSTGRES_USER
-ARG POSTGRES_PASSWORD
-ARG POSTGRES_DB
-ARG POSTGRES_CONTAINER
-
-RUN psql postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_CONTAINER}:5432/${POSTGRES_DB} -f schema.sql
+COPY schema.sql /docker-entrypoint-initdb.d/
+WORKDIR /docker-entrypoint-initdb.d/

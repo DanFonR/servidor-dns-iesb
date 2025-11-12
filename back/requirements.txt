@@ -3,3 +3,5 @@ flask-cors
 jwt
 psycopg
 sqlalchemy
+pytest
+pytest-mock

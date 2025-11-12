@@ -7,6 +7,20 @@ CREATE TABLE IF NOT EXISTS users(
     pass TEXT
 );
 
+CREATE TABLE IF NOT EXISTS sessions(
+    session_id VARCHAR(255) PRIMARY KEY,
+    username VARCHAR(50) NOT NULL REFERENCES users(username) ON DELETE CASCADE,
+    token TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    ip_address VARCHAR(45),
+    user_agent TEXT
+);
+
+CREATE INDEX idx_sessions_username ON sessions(username);
+CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
+
+
 /* CREATE TABLE IF NOT EXISTS posts(
     postID SERIAL PRIMARY KEY,
     title VARCHAR(50) NOT NULL,
