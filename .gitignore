@@ -1,5 +1,3 @@
-!db.aredanvisa.local
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -81,3 +79,5 @@ node_modules
 dist
 dist-ssr
 *.local
+
+!db.aredanvisa.local

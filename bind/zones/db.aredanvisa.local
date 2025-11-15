@@ -1,0 +1,14 @@
+$TTL 3600
+@   IN  SOA ns1.aredanvisa.local. admin.aredanvisa.local. (
+            2025111201 ; serial
+            3600       ; refresh
+            1800       ; retry
+            604800     ; expire
+            86400 )    ; minimum
+    IN  NS  ns1.aredanvisa.local.
+ns1 IN  A   172.28.0.1
+db  IN  A   172.28.0.2
+api IN  A   172.28.0.3
+www IN  A   172.29.0.4
+www IN  A   172.29.0.5
+www IN  A   172.29.0.6
