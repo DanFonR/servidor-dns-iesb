@@ -20,7 +20,8 @@ export default function Login() {
             });
             login(res.data.token);
         } catch (err) {
-            setError(data.error || "Login failed");
+            console.log(err || "Login failed");
+            setError(err);
         }
     };
 
@@ -28,9 +29,11 @@ export default function Login() {
         if (token) navigate("/profile");
     }, []);
 
+            // {error && (<h3 className="error-msg">{JSON.stringify(error.message).slice(1,-1)}</h3>)}
     return (
-        <div className="login-container">
+        <div className="page-container full-height-center">
             <h2>Login</h2>
+            {error && error.response === "Invalid credentials" && <h3>Invalid Credentials</h3>}
             <form onSubmit={handleSubmit}>
                 <input
                     type="text"

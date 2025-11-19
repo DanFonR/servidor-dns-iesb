@@ -31,8 +31,8 @@ export default function Profile() {
     }, [token]);
 
     return (
-        <div>
-            <h1>{message || "Loading..."}</h1>
+        <div className="page-container full-height-center">
+            <h1 className="profile-message">{message || "Loading..."}</h1>
         </div>
     );
 }

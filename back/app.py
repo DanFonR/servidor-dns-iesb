@@ -4,6 +4,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from sql_conn import SQLServices
 from os import getenv
+# from flasgger import Swagger
 
 BACKEND_KEY: str = getenv("BACKEND_KEY")
 ADMIN_USER: str = getenv("ADMIN_USER")
@@ -11,6 +12,7 @@ ADMIN_PW: str = getenv("ADMIN_PW")
 UTC: timezone = timezone.utc
 
 app = Flask(__name__)
+# swagger = Swagger(app)
 CORS(app)
 
 

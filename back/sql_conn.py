@@ -11,6 +11,7 @@ DB_URL: str | None = getenv("DB_URL")
 UTC: timezone = timezone.utc
 
 if not DB_URL:
+    print("DB_URL vazia")
     exit(1)
 
 class SQLServices:
@@ -22,10 +23,10 @@ class SQLServices:
     __ENGINE: Engine = create_engine(DB_URL)
 
     def __new__(cls):
-        raise TypeError(f"Class SQLServices cannot not be instantiated")
+        raise TypeError("Class SQLServices cannot not be instantiated")
 
     def __init_subclass__(cls):
-        raise TypeError(f"Class SQLServices cannot not be inherited from")
+        raise TypeError("Class SQLServices cannot not be inherited from")
 
     @classmethod
     def check_password(cls, username: str, password: str) -> bool:
