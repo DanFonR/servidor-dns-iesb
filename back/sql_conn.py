@@ -4,8 +4,9 @@ from os import getenv
 from datetime import datetime, timedelta
 from datetime import timezone
 from uuid import uuid4
+import time
 
-# DB_URL: postgresql+psycopg://USUARIO:SENHA@NOME_DO_CONTAINER:PORTA/BANCO
+# DB_URL: postgresql+psycopg2://USUARIO:SENHA@NOME_DO_CONTAINER:PORTA/BANCO
 DB_URL: str | None = getenv("DB_URL")
 
 UTC: timezone = timezone.utc
@@ -13,13 +14,30 @@ UTC: timezone = timezone.utc
 if not DB_URL:
     exit(1)
 
+def create_db_engine_with_retry(db_url: str, max_retries: int = 30, retry_delay: int = 2) -> Engine:
+    """Tenta conectar ao banco com retry"""
+    for attempt in range(max_retries):
+        try:
+            engine = create_engine(db_url)
+            # Testa a conexão
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            print(f"✓ Database connected successfully on attempt {attempt + 1}")
+            return engine
+        except Exception as e:
+            print(f"✗ Database connection failed (attempt {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                time.sleep(retry_delay)
+    
+    raise Exception(f"Failed to connect to database after {max_retries} attempts")
+
 class SQLServices:
     """
     Classe que fornece serviços de banco de dados. Não é instanciável e não pode
     ter subclasses.
     """
 
-    __ENGINE: Engine = create_engine(DB_URL)
+    __ENGINE: Engine = create_db_engine_with_retry(DB_URL)
 
     def __new__(cls):
         raise TypeError(f"Class SQLServices cannot not be instantiated")
@@ -77,9 +95,10 @@ class SQLServices:
 
         with (cls.__ENGINE).connect() as conn:
             conn.execute(text(
-                "INSERT INTO sessions (session_id, username, token, expires_at, ip_address, user_agent) "
+                "INSERT INTO browser_sessions (session_id, username, token, expires_at, ip_address, user_agent) "
                 "VALUES (:session_id, :username, :token, :expires_at, :ip_address, :user_agent)"
             ), row)
+            conn.commit()
             conn.commit()
 
         return session_id

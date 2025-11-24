@@ -14,16 +14,16 @@ services:
             - rede_back
         volumes:
             - db_data:/var/lib/postgresql
+        environment:
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+            POSTGRES_DB: ${POSTGRES_DB}
         healthcheck:
             test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
             interval: 10s
             timeout: 5s
             retries: 5
         restart: unless-stopped
-        environment:
-            POSTGRES_USER: ${POSTGRES_USER}
-            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-            POSTGRES_DB: ${POSTGRES_DB}
 
     dns:
         container_name: dns
@@ -37,7 +37,8 @@ services:
             - "53/udp"
             - "53/tcp"
         volumes:
-            - ../bind:/etc/bind:ro
+            - ../bind/named.conf:/etc/bind/named.conf:ro
+            - ../bind/zones:/etc/bind/zones:ro
         restart: unless-stopped
 
     back:
@@ -46,8 +47,10 @@ services:
             context: ../back
             dockerfile: ../docker/back.dockerfile
         depends_on:
-            - db
-            - dns
+            db:
+                condition: service_healthy
+            dns:
+                condition: service_started
         environment:
             DB_URL: ${DB_URL}
             BACKEND_KEY: ${BACKEND_KEY}
@@ -91,12 +94,14 @@ services:
             - frontend1
             - frontend2
             - frontend3
+            - back
         ports:
             - "80:80"
         volumes:
             - ./nginx-proxy.conf:/etc/nginx/conf.d/default.conf:ro
         networks:
             - rede_front
+            - rede_back
         restart: unless-stopped
 
 networks:
