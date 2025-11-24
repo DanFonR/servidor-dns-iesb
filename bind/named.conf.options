@@ -1,0 +1,22 @@
+options {
+    directory "/var/cache/bind";
+
+    // listen on all interfaces
+    listen-on { any; };
+    listen-on-v6 { any; };
+
+    // allow queries from any IP (Docker networks)
+    allow-query { any; };
+
+    // forwarders (optional, for external DNS)
+    forwarders {
+        8.8.8.8;
+        1.1.1.1;
+    };
+
+    recursion yes;
+
+    dnssec-validation no;
+
+    auth-nxdomain yes;    // conform to RFC1035
+};

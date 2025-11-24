@@ -11,7 +11,10 @@ services:
         ports:
             - "5432:5432"
         networks:
-            - rede_back
+            rede_back:
+                ipv4_address: 10.10.0.2
+        dns:
+            - 10.10.0.10
         volumes:
             - db_data:/var/lib/postgresql
         healthcheck:
@@ -31,8 +34,10 @@ services:
             context: ../bind
             dockerfile: ../docker/dns.dockerfile
         networks:
-            - rede_back
-            - rede_front
+            rede_back:
+                ipv4_address: 10.10.0.10
+            rede_front:
+                ipv4_address: 10.11.0.10
         ports:
             - "53:53/udp"
             - "53:53/tcp"
@@ -44,12 +49,11 @@ services:
         build:
             context: ../back
             dockerfile: ../docker/back.dockerfile
-            network: host
         depends_on:
             - db
             - dns
         dns:
-            - 8.8.8.8
+            - 10.10.0.10
             - 1.1.1.1
         environment:
             DB_URL: ${DB_URL}
@@ -59,7 +63,8 @@ services:
         ports:
             - "5000:5000"
         networks:
-            - rede_back
+            rede_back:
+                ipv4_address: 10.10.0.3
         restart: unless-stopped
 
     frontend1:
@@ -69,8 +74,11 @@ services:
             dockerfile: ../docker/http.dockerfile
         ports:
             - "3000:80"
+        dns:
+            - 10.11.0.10
         networks:
-            - rede_front
+            rede_front:
+                ipv4_address: 10.11.0.4
         restart: unless-stopped
 
     frontend2:
@@ -78,8 +86,11 @@ services:
         build:
             context: ../front
             dockerfile: ../docker/http.dockerfile
+        dns:
+            - 10.11.0.10
         networks:
-            - rede_front
+            rede_front:
+                ipv4_address: 10.11.0.5
         restart: unless-stopped
 
     frontend3:
@@ -87,8 +98,11 @@ services:
         build:
             context: ../front
             dockerfile: ../docker/http.dockerfile
+        dns:
+            - 10.11.0.10
         networks:
-            - rede_front
+            rede_front:
+                ipv4_address: 10.11.0.6
         restart: unless-stopped
 
     proxy:
@@ -102,15 +116,24 @@ services:
             - "80:80"
         volumes:
             - ./nginx-proxy.conf:/etc/nginx/conf.d/default.conf:ro
+        dns:
+            - 10.11.0.10
         networks:
-            - rede_front
+            rede_front:
+                ipv4_address: 10.11.0.7
         restart: unless-stopped
-
-networks:
-    rede_front:
-        driver: bridge
-    rede_back:
-        driver: bridge
 
 volumes:
     db_data:
+
+networks:
+    rede_back:
+        driver: bridge
+        ipam:
+            config:
+                - subnet: 10.10.0.0/24
+    rede_front:
+        driver: bridge
+        ipam:
+            config:
+                - subnet: 10.11.0.0/24

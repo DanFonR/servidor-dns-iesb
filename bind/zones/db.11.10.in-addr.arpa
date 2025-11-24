@@ -5,7 +5,7 @@ $TTL 3600
             1800       ; retry
             604800     ; expire
             86400 )    ; minimum
-    IN  NS  ns1.aredanvisa.local.
+10  IN  NS  ns1.aredanvisa.local.
 4   IN  PTR www.aredanvisa.local.
 5   IN  PTR www.aredanvisa.local.
 6   IN  PTR www.aredanvisa.local.
