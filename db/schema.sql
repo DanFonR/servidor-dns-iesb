@@ -80,3 +80,11 @@ FOR EACH ROW EXECUTE FUNCTION password_insert();
 SELECT cron.schedule('cleanup_expired_sessions', '*/10 * * * *', 
     'DELETE FROM browser_sessions WHERE expires_at < CURRENT_TIMESTAMP'
 );
+
+
+/* INSERT */
+
+INSERT INTO users (username, pass) VALUES 
+('admin', '1234');
+INSERT INTO users (username, pass) VALUES 
+('other', 'H3ll0!');
