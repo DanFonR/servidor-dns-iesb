@@ -81,3 +81,4 @@ dist-ssr
 *.local
 
 !db.aredanvisa.local
+!named.conf.local
