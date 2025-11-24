@@ -33,31 +33,26 @@ services:
         networks:
             - rede_back
             - rede_front
-        ports:
-            - "53:53/udp"
-            - "53:53/tcp"
+        expose:
+            - "53/udp"
+            - "53/tcp"
         volumes:
             - ../bind:/etc/bind:ro
+        restart: unless-stopped
 
     back:
         container_name: backend
         build:
             context: ../back
             dockerfile: ../docker/back.dockerfile
-            network: host
         depends_on:
             - db
             - dns
-        dns:
-            - 8.8.8.8
-            - 1.1.1.1
         environment:
             DB_URL: ${DB_URL}
             BACKEND_KEY: ${BACKEND_KEY}
             ADMIN_USER: ${ADMIN_USER}
             ADMIN_PW: ${ADMIN_PW}
-        ports:
-            - "5000:5000"
         networks:
             - rede_back
         restart: unless-stopped
@@ -67,8 +62,6 @@ services:
         build:
             context: ../front
             dockerfile: ../docker/http.dockerfile
-        ports:
-            - "3000:80"
         networks:
             - rede_front
         restart: unless-stopped

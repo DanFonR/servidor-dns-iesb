@@ -18,8 +18,8 @@ export default function Login() {
         setLoading(true);
 
         try {
-            // Conecta ao backend na porta 5000
-            const res = await axios.post("http://localhost:5000/login", {
+            // Conecta ao backend através do proxy Nginx
+            const res = await axios.post("/login", {
                 username,
                 password,
             });

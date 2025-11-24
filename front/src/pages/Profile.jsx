@@ -16,7 +16,7 @@ export default function Profile() {
         }
 
         axios
-            .get("http://localhost:5000/profile", {
+            .get("/profile", {
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },

@@ -33,13 +33,25 @@ def login():
 
 @app.route("/profile", methods=["GET"])
 def profile():
-    session_id = request.headers.get("X-Session-ID")
-    if not session_id:
-        return jsonify({"error": "Missing session"}), 401
+    # Tenta obter o token do header Authorization
+    auth_header = request.headers.get("Authorization", "")
+    token = None
+    
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]  # Remove "Bearer " prefix
+    
+    if not token:
+        return jsonify({"error": "Missing token"}), 401
 
-    is_valid, username = SQLServices.validate_session(session_id)
-    if not is_valid:
-        return jsonify({"error": "Session expired or invalid"}), 401
+    # Decodifica o token para obter o username
+    try:
+        decoded = jwt.decode(token, BACKEND_KEY, algorithms=["HS256"])
+        username = decoded.get("user")
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+    
+    if not username:
+        return jsonify({"error": "Invalid token payload"}), 401
 
     return jsonify({"message": f"Welcome {username}!"})
 
