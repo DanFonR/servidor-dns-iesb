@@ -1,5 +1,4 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
-CREATE EXTENSION IF NOT EXISTS pg_cron;
 
 /* DEFINICOES */
 
@@ -72,11 +71,3 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE TRIGGER password_insert
 BEFORE INSERT ON users
 FOR EACH ROW EXECUTE FUNCTION password_insert();
-
-
-/* CRON */
-
-/* Limpa sessões a cada 10 minutos */
-/* SELECT cron.schedule('cleanup_expired_sessions', '*/10 * * * *', 
-    'DELETE FROM browser_sessions WHERE expires_at < CURRENT_TIMESTAMP'
-); */
