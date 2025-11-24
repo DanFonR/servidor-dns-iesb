@@ -59,8 +59,7 @@ services:
         ports:
             - "5000:5000"
         networks:
-            rede_back:
-                ipv4_address: 172.28.0.3
+            - rede_back
         restart: unless-stopped
 
     frontend1:
@@ -71,8 +70,7 @@ services:
         ports:
             - "3000:80"
         networks:
-            rede_front:
-                ipv4_address: 172.29.0.4
+            - rede_front
         restart: unless-stopped
 
     frontend2:
@@ -110,12 +108,9 @@ services:
 
 networks:
     rede_front:
-        ipam:
-            config:
-                - subnet: 172.29.0.0/24
+        driver: bridge
     rede_back:
-        ipam:
-            config:
-                - subnet: 172.28.0.0/24
+        driver: bridge
+
 volumes:
     db_data:
