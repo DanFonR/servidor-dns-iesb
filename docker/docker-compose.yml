@@ -65,6 +65,8 @@ services:
         networks:
             rede_back:
                 ipv4_address: 10.10.0.3
+            rede_front:
+                ipv4_address: 10.11.0.3
         restart: unless-stopped
 
     frontend1:
@@ -116,7 +118,7 @@ services:
         ports:
             - "80:80"
         volumes:
-            - ./nginx-proxy.conf:/etc/nginx/conf.d/default.conf:ro
+            - ./nginx-proxy.conf:/etc/nginx/conf.d/default.conf
         dns:
             - 10.11.0.10
         networks:

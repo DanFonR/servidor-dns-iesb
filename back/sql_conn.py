@@ -113,7 +113,7 @@ class SQLServices:
         """
         with (cls.__ENGINE).connect() as conn:
             result = conn.execute(text(
-                "SELECT username, expires_at FROM sessions WHERE session_id = :session_id"
+                "SELECT username, expires_at FROM browser_sessions WHERE session_id = :session_id"
             ), {"session_id": session_id}).fetchone()
 
         if not result:
