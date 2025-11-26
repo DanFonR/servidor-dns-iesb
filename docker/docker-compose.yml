@@ -74,6 +74,8 @@ services:
         build:
             context: ../front
             dockerfile: ../docker/http.dockerfile
+            args:
+                HOSTNAME: frontend1
         ports:
             - "3000:80"
         dns:
@@ -88,6 +90,8 @@ services:
         build:
             context: ../front
             dockerfile: ../docker/http.dockerfile
+            args:
+                HOSTNAME: frontend2
         dns:
             - 10.11.0.10
         networks:
@@ -100,6 +104,8 @@ services:
         build:
             context: ../front
             dockerfile: ../docker/http.dockerfile
+            args:
+                HOSTNAME: frontend3
         dns:
             - 10.11.0.10
         networks:

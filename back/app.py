@@ -57,6 +57,13 @@ def profile():
         return jsonify({"error": "Invalid token payload"}), 401
     # Verifica se o token corresponde a uma sessão válida no banco
     session_id, sess_username, created_at, expires_at = SQLServices.get_session_by_token(token)
+
+    if created_at and created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=UTC)
+
+    if expires_at and expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=UTC)
+
     if not session_id or sess_username != username:
         return jsonify({"error": "Missing token or session not found"}), 401
 
