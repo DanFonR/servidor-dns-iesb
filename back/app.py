@@ -16,6 +16,7 @@ CORS(app)
 
 
 @app.route("/login", methods=["POST"])
+@app.route("/api/login", methods=["POST"])
 def login():
     data = request.get_json()
     if data["username"] == ADMIN_USER and data["password"] == ADMIN_PW:
@@ -33,6 +34,7 @@ def login():
 
 
 @app.route("/profile", methods=["GET"])
+@app.route("/api/profile", methods=["GET"])
 def profile():
     # Tenta obter o token do header Authorization
     auth_header = request.headers.get("Authorization", "")
@@ -53,12 +55,23 @@ def profile():
     
     if not username:
         return jsonify({"error": "Invalid token payload"}), 401
+    # Verifica se o token corresponde a uma sessão válida no banco
+    session_id, sess_username, created_at, expires_at = SQLServices.get_session_by_token(token)
+    if not session_id or sess_username != username:
+        return jsonify({"error": "Missing token or session not found"}), 401
+
+    # Verifica expiração
+    if expires_at < datetime.now(tz=UTC):
+        return jsonify({"error": "Session expired"}), 401
 
     hostname = gethostname()
-    
+    login_time = created_at.astimezone(UTC).isoformat() if created_at else None
+
     return jsonify({
         "username": username,
         "hostname": hostname,
+        "session_id": session_id,
+        "login_time": login_time,
         "message": f"Welcome {username}!"
     })
 

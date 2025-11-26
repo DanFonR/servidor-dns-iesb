@@ -124,3 +124,42 @@ class SQLServices:
             return False, None
 
         return True, username
+
+    @classmethod
+    def get_last_session(cls, username: str) -> tuple[str | None, datetime | None]:
+        """
+        Recupera a última sessão criada para um dado usuário.
+
+        Returns:
+            (session_id, created_at) ou (None, None) se não encontrada
+        """
+        with (cls.__ENGINE).connect() as conn:
+            result = conn.execute(text(
+                "SELECT session_id, created_at FROM browser_sessions WHERE username = :username "
+                "ORDER BY created_at DESC LIMIT 1"
+            ), {"username": username}).fetchone()
+
+        if not result:
+            return None, None
+
+        session_id, created_at = result
+        return session_id, created_at
+
+    @classmethod
+    def get_session_by_token(cls, token: str) -> tuple[str | None, str | None, datetime | None, datetime | None]:
+        """
+        Recupera sessão pelo token.
+
+        Returns:
+            (session_id, username, created_at, expires_at) ou (None, None, None, None)
+        """
+        with (cls.__ENGINE).connect() as conn:
+            result = conn.execute(text(
+                "SELECT session_id, username, created_at, expires_at FROM browser_sessions WHERE token = :token LIMIT 1"
+            ), {"token": token}).fetchone()
+
+        if not result:
+            return None, None, None, None
+
+        session_id, username, created_at, expires_at = result
+        return session_id, username, created_at, expires_at

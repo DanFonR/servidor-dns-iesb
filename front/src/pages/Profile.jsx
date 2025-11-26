@@ -7,7 +7,9 @@ export default function Profile() {
     const navigate = useNavigate();
     const [userData, setUserData] = useState({
         username: "",
-        hostname: ""
+        hostname: "",
+        session_id: "",
+        login_time: ""
     });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -21,7 +23,7 @@ export default function Profile() {
         }
 
         axios
-            .get("/profile", {
+            .get("/api/profile", {
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },
@@ -29,7 +31,9 @@ export default function Profile() {
             .then((res) => {
                 setUserData({
                     username: res.data.username,
-                    hostname: res.data.hostname
+                    hostname: res.data.hostname,
+                    session_id: res.data.session_id || "",
+                    login_time: res.data.login_time || ""
                 });
                 setLoading(false);
             })
@@ -52,9 +56,16 @@ export default function Profile() {
             ) : (
                 <div style={{ textAlign: "center" }}>
                     <h1 className="profile-message">Bem-vindo, {userData.username}!</h1>
-                    <div style={{ marginTop: "2rem", fontSize: "1.2rem" }}>
+                    <div style={{ marginTop: "2rem", fontSize: "1.1rem", lineHeight: 1.6 }}>
                         <p>
                             <strong>Servidor:</strong> {userData.hostname}
+                        </p>
+                        <p>
+                            <strong>Sessão:</strong> {userData.session_id || "-"}
+                        </p>
+                        <p>
+                            <strong>Data/Hora do login:</strong>{" "}
+                            {userData.login_time ? new Date(userData.login_time).toLocaleString() : "-"}
                         </p>
                     </div>
                 </div>
