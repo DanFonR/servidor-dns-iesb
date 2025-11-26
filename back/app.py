@@ -4,6 +4,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from sql_conn import SQLServices
 from os import getenv
+from socket import gethostname
 
 BACKEND_KEY: str = getenv("BACKEND_KEY")
 ADMIN_USER: str = getenv("ADMIN_USER")
@@ -15,6 +16,7 @@ CORS(app)
 
 
 @app.route("/login", methods=["POST"])
+@app.route("/api/login", methods=["POST"])
 def login():
     data = request.get_json()
     if data["username"] == ADMIN_USER and data["password"] == ADMIN_PW:
@@ -32,16 +34,53 @@ def login():
 
 
 @app.route("/profile", methods=["GET"])
+@app.route("/api/profile", methods=["GET"])
 def profile():
-    session_id = request.headers.get("X-Session-ID")
-    if not session_id:
-        return jsonify({"error": "Missing session"}), 401
+    # Tenta obter o token do header Authorization
+    auth_header = request.headers.get("Authorization", "")
+    token = None
+    
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]  # Remove "Bearer " prefix
+    
+    if not token:
+        return jsonify({"error": "Missing token"}), 401
 
-    is_valid, username = SQLServices.validate_session(session_id)
-    if not is_valid:
-        return jsonify({"error": "Session expired or invalid"}), 401
+    # Decodifica o token para obter o username
+    try:
+        decoded = jwt.decode(token, BACKEND_KEY, algorithms=["HS256"])
+        username = decoded.get("user")
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+    
+    if not username:
+        return jsonify({"error": "Invalid token payload"}), 401
+    # Verifica se o token corresponde a uma sessão válida no banco
+    session_id, sess_username, created_at, expires_at = SQLServices.get_session_by_token(token)
 
-    return jsonify({"message": f"Welcome {username}!"})
+    if created_at and created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=UTC)
+
+    if expires_at and expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=UTC)
+
+    if not session_id or sess_username != username:
+        return jsonify({"error": "Missing token or session not found"}), 401
+
+    # Verifica expiração
+    if expires_at < datetime.now(tz=UTC):
+        return jsonify({"error": "Session expired"}), 401
+
+    hostname = gethostname()
+    login_time = created_at.astimezone(UTC).isoformat() if created_at else None
+
+    return jsonify({
+        "username": username,
+        "hostname": hostname,
+        "session_id": session_id,
+        "login_time": login_time,
+        "message": f"Welcome {username}!"
+    })
 
 
 if __name__ == "__main__":

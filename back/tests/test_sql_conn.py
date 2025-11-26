@@ -6,15 +6,13 @@ from back.sql_conn import SQLServices
 
 @pytest.fixture
 def mock_conn():
-    """Returns a mock SQLAlchemy connection."""
-    conn = MagicMock()
-    return conn
+    return MagicMock()
 
 
 @pytest.fixture
 def mock_engine(mock_conn):
-    """Patches SQLServices.__ENGINE to use our mock connection."""
-    with patch("sql_conn.SQLServices._SQLServices__ENGINE") as eng:
+    # Patch the private __ENGINE attribute correctly
+    with patch("back.sql_conn.SQLServices._SQLServices__ENGINE") as eng:
         eng.connect.return_value.__enter__.return_value = mock_conn
         yield eng
 
@@ -25,7 +23,7 @@ def test_check_password(mock_conn, mock_engine):
 
 
 def test_check_password_too_long(mock_engine):
-    result = SQLServices.check_password("x"*51, "pw")
+    result = SQLServices.check_password("x" * 51, "pw")
     assert result is False
 
 
@@ -73,3 +71,41 @@ def test_validate_session_not_found(mock_conn, mock_engine):
 
     assert is_valid is False
     assert username is None
+
+
+def test_get_last_session_found(mock_conn, mock_engine):
+    now = datetime.now(timezone.utc)
+    mock_conn.execute.return_value.fetchone.return_value = ("sess1", now)
+
+    session_id, created_at = SQLServices.get_last_session("admin")
+
+    assert session_id == "sess1"
+    assert created_at == now
+
+
+def test_get_last_session_not_found(mock_conn, mock_engine):
+    mock_conn.execute.return_value.fetchone.return_value = None
+
+    session_id, created_at = SQLServices.get_last_session("admin")
+
+    assert session_id is None
+    assert created_at is None
+
+
+def test_get_session_by_token_found(mock_conn, mock_engine):
+    created = datetime.now(timezone.utc)
+    expires = created + timedelta(hours=1)
+    mock_conn.execute.return_value.fetchone.return_value = ("sess1", "admin", created, expires)
+
+    result = SQLServices.get_session_by_token("token123")
+
+    assert result == ("sess1", "admin", created, expires)
+
+
+def test_get_session_by_token_not_found(mock_conn, mock_engine):
+    mock_conn.execute.return_value.fetchone.return_value = None
+
+    result = SQLServices.get_session_by_token("token123")
+
+    assert result == (None, None, None, None)
+

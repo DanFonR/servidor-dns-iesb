@@ -5,7 +5,7 @@ import axios from "axios";
 
 export default function Login() {
     const navigate = useNavigate();
-    const { login, token } = useContext(AuthContext);
+    const { login, token, checked } = useContext(AuthContext);
     
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
@@ -18,8 +18,8 @@ export default function Login() {
         setLoading(true);
 
         try {
-            // Conecta ao backend na porta 5000
-            const res = await axios.post("http://localhost:5000/login", {
+            // Conecta ao backend através do proxy Nginx
+            const res = await axios.post("/api/login", {
                 username,
                 password,
             });
@@ -36,8 +36,9 @@ export default function Login() {
     };
 
     useEffect(() => {
-        if (token) navigate("/profile");
-    }, [token, navigate]);
+        // Only redirect to profile after token has been validated on startup
+        if (token && checked) navigate("/profile");
+    }, [token, checked, navigate]);
 
     return (
         <div className="page-container">
