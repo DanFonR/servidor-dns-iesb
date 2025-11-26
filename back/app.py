@@ -4,6 +4,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from sql_conn import SQLServices
 from os import getenv
+from socket import gethostname
 
 BACKEND_KEY: str = getenv("BACKEND_KEY")
 ADMIN_USER: str = getenv("ADMIN_USER")
@@ -53,7 +54,13 @@ def profile():
     if not username:
         return jsonify({"error": "Invalid token payload"}), 401
 
-    return jsonify({"message": f"Welcome {username}!"})
+    hostname = gethostname()
+    
+    return jsonify({
+        "username": username,
+        "hostname": hostname,
+        "message": f"Welcome {username}!"
+    })
 
 
 if __name__ == "__main__":
