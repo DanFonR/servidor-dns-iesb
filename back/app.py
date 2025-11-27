@@ -86,7 +86,8 @@ def profile():
 
 if __name__ == "__main__":
     with SQLServices._SQLServices__ENGINE.begin() as conn:
-        conn.execute(text("INSERT INTO users (username, pass) VALUES (:us, :pw)"),
+        conn.execute(text("INSERT INTO users (username, pass) "
+                          "VALUES (:us, :pw) ON CONFLICT DO NOTHING"),
                      {"us": ADMIN_USER, "pw": ADMIN_PW})
 
     app.run(host="0.0.0.0", port=5000)
