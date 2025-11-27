@@ -1,4 +1,4 @@
-$TTL 3600
+$TTL 5
 @   IN  SOA ns1.aredanvisa.local. admin.aredanvisa.local. (
             2025111201 ; serial
             3600       ; refresh

@@ -1,0 +1,628 @@
+/back/:
+app.py:
+import jwt
+from datetime import datetime, timezone, timedelta
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from sql_conn import SQLServices
+from os import getenv
+from socket import gethostname
+
+BACKEND_KEY: str = getenv("BACKEND_KEY")
+ADMIN_USER: str = getenv("ADMIN_USER")
+ADMIN_PW: str = getenv("ADMIN_PW")
+UTC: timezone = timezone.utc
+
+app = Flask(__name__)
+CORS(app)
+
+
+@app.route("/login", methods=["POST"])
+@app.route("/api/login", methods=["POST"])
+def login():
+    data = request.get_json()
+    if data["username"] == ADMIN_USER and data["password"] == ADMIN_PW:
+        token = jwt.encode({"user": data["username"]}, BACKEND_KEY,
+                           algorithm="HS256")
+        session_id = SQLServices.create_session(
+            username=data["username"],
+            token=token,
+            ip_address=request.remote_addr,
+            user_agent=request.headers.get("User-Agent", "")
+        )
+        return jsonify({"session_id": session_id, "token": token})
+
+    return jsonify({"error": "Invalid credentials"}), 401
+
+
+@app.route("/profile", methods=["GET"])
+@app.route("/api/profile", methods=["GET"])
+def profile():
+    # Tenta obter o token do header Authorization
+    auth_header = request.headers.get("Authorization", "")
+    token = None
+    
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]  # Remove "Bearer " prefix
+    
+    if not token:
+        return jsonify({"error": "Missing token"}), 401
+
+    # Decodifica o token para obter o username
+    try:
+        decoded = jwt.decode(token, BACKEND_KEY, algorithms=["HS256"])
+        username = decoded.get("user")
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+    
+    if not username:
+        return jsonify({"error": "Invalid token payload"}), 401
+    # Verifica se o token corresponde a uma sessão válida no banco
+    session_id, sess_username, created_at, expires_at = SQLServices.get_session_by_token(token)
+
+    if created_at and created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=UTC)
+
+    if expires_at and expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=UTC)
+
+    if not session_id or sess_username != username:
+        return jsonify({"error": "Missing token or session not found"}), 401
+
+    # Verifica expiração
+    if expires_at < datetime.now(tz=UTC):
+        return jsonify({"error": "Session expired"}), 401
+
+    hostname = gethostname()
+    login_time = created_at.astimezone(UTC).isoformat() if created_at else None
+
+    return jsonify({
+        "username": username,
+        "hostname": hostname,
+        "session_id": session_id,
+        "login_time": login_time,
+        "message": f"Welcome {username}!"
+    })
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
+
+/bind/:
+named.conf:
+include "/etc/bind/named.conf.options";
+include "/etc/bind/named.conf.local";
+
+zone "aredanvisa.local" {
+    type master;
+    file "/etc/bind/zones/db.aredanvisa.local";
+};
+zone "10.10.in-addr.arpa" {
+    type master;
+    file "/etc/bind/zones/db.10.10.in-addr.arpa";
+};
+
+zone "11.10.in-addr.arpa" {
+    type master;
+    file "/etc/bind/zones/db.11.10.in-addr.arpa";
+};
+named.conf.options:
+options {
+    directory "/var/cache/bind";
+
+    // listen on all interfaces
+    listen-on { any; };
+    listen-on-v6 { any; };
+
+    // allow queries from any IP (Docker networks)
+    allow-query { any; };
+
+    // forwarders (optional, for external DNS)
+    forwarders {
+        8.8.8.8;
+        1.1.1.1;
+    };
+
+    recursion yes;
+
+    dnssec-validation no;
+
+    auth-nxdomain yes;    // conform to RFC1035
+};
+/bind/zones/:
+db.aredanvisa.local:
+$TTL 3600
+@   IN  SOA ns1.aredanvisa.local. admin.aredanvisa.local. (
+            2025111201 ; serial
+            3600       ; refresh
+            1800       ; retry
+            604800     ; expire
+            86400 )    ; minimum
+    IN  NS  ns1.aredanvisa.local.
+ns1 IN  A   10.10.0.10
+ns1 IN  A   10.11.0.10
+db  IN  A   10.10.0.2
+api IN  A   10.11.0.3
+www IN  A   10.11.0.4
+www IN  A   10.11.0.5
+www IN  A   10.11.0.6
+/docker/:
+docker-compose.yml:
+services:
+    db:
+        container_name: ${POSTGRES_CONTAINER}
+        build:
+            context: ../db
+            dockerfile: ../docker/db.dockerfile
+            args:
+                POSTGRES_USER: ${POSTGRES_USER}
+                POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+                POSTGRES_DB: ${POSTGRES_DB}
+        ports:
+            - "5432:5432"
+        networks:
+            rede_back:
+                ipv4_address: 10.10.0.2
+        dns:
+            - 10.10.0.10
+        volumes:
+            - db_data:/var/lib/postgresql
+        environment:
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+            POSTGRES_DB: ${POSTGRES_DB}
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        restart: unless-stopped
+
+    dns:
+        container_name: dns
+        build:
+            context: ../bind
+            dockerfile: ../docker/dns.dockerfile
+        networks:
+            rede_back:
+                ipv4_address: 10.10.0.10
+            rede_front:
+                ipv4_address: 10.11.0.10
+        ports:
+            - "53:53/udp"
+            - "53:53/tcp"
+        volumes:
+            - ../bind/named.conf:/etc/bind/named.conf:ro
+            - ../bind/zones:/etc/bind/zones:ro
+        restart: unless-stopped
+
+    back:
+        container_name: backend
+        build:
+            context: ../back
+            dockerfile: ../docker/back.dockerfile
+        depends_on:
+            - db
+            - dns
+        dns:
+            - 10.10.0.10
+            - 1.1.1.1
+        environment:
+            DB_URL: ${DB_URL}
+            BACKEND_KEY: ${BACKEND_KEY}
+            ADMIN_USER: ${ADMIN_USER}
+            ADMIN_PW: ${ADMIN_PW}
+        networks:
+            rede_back:
+                ipv4_address: 10.10.0.3
+            rede_front:
+                ipv4_address: 10.11.0.3
+        restart: unless-stopped
+
+    frontend1:
+        container_name: frontend1
+        build:
+            context: ../front
+            dockerfile: ../docker/http.dockerfile
+            args:
+                HOSTNAME: frontend1
+        ports:
+            - "3000:80"
+        dns:
+            - 10.11.0.10
+        networks:
+            rede_front:
+                ipv4_address: 10.11.0.4
+        restart: unless-stopped
+
+    frontend2:
+        container_name: frontend2
+        build:
+            context: ../front
+            dockerfile: ../docker/http.dockerfile
+            args:
+                HOSTNAME: frontend2
+        dns:
+            - 10.11.0.10
+        networks:
+            rede_front:
+                ipv4_address: 10.11.0.5
+        restart: unless-stopped
+
+    frontend3:
+        container_name: frontend3
+        build:
+            context: ../front
+            dockerfile: ../docker/http.dockerfile
+            args:
+                HOSTNAME: frontend3
+        dns:
+            - 10.11.0.10
+        networks:
+            rede_front:
+                ipv4_address: 10.11.0.6
+        restart: unless-stopped
+
+    proxy:
+        container_name: proxy
+        image: nginx:alpine
+        depends_on:
+            - frontend1
+            - frontend2
+            - frontend3
+            - back
+        ports:
+            - "80:80"
+        volumes:
+            - ./nginx-proxy.conf:/etc/nginx/conf.d/default.conf
+        dns:
+            - 10.11.0.10
+        networks:
+            rede_front:
+                ipv4_address: 10.11.0.7
+        restart: unless-stopped
+
+volumes:
+    db_data:
+
+networks:
+    rede_back:
+        driver: bridge
+        ipam:
+            config:
+                - subnet: 10.10.0.0/24
+    rede_front:
+        driver: bridge
+        ipam:
+            config:
+                - subnet: 10.11.0.0/24
+nginx-proxy.conf:
+resolver 10.11.0.10 valid=10s;
+resolver_timeout 5s;
+
+server {
+    listen 80;
+
+    # API backend: only /api/ is proxied to the Flask backend
+    location /api/ {
+        proxy_pass http://api.aredanvisa.local:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Frontend (DNS round-robin): all other routes served by frontend
+    location / {
+        proxy_pass http://www.aredanvisa.local;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+/front/:
+index.html:
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>front</title>
+    </head>
+    <body>
+        <div id="root"></div>
+        <script type="module" src="/src/main.jsx"></script>
+        <script src="/frontend-info.js"></script>
+        <!-- <script>
+          console.log("Frontend container serving this request:", window.FRONTEND_HOSTNAME);
+        </script> -->
+
+    </body>
+</html>
+nginx.conf:
+server {
+    listen 80;
+    location / {
+        root /usr/share/nginx/html;
+        try_files $uri $uri/ /index.html;
+    }
+    location /frontend-info.js {
+        default_type application/javascript;
+        return 200 "window.FRONTEND_HOSTNAME='$HOSTNAME';";
+    }
+}
+/front/src/:
+App.jsx:
+import { Navigate, Routes, Route } from "react-router-dom";
+import Login from "./pages/Login";
+import Profile from "./pages/Profile";
+
+export default function App() {
+    return (
+        <>
+        <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+        <div
+                style={{
+                    position: "fixed",
+                    bottom: 5,
+                    right: 5,
+                    fontSize: "0.8rem",
+                    color: "#888",
+                    zIndex: 9999,
+                }}
+            >
+                Servidor de front: {window.FRONTEND_HOSTNAME || "unknown"}
+            </div>
+        </>
+        
+    );
+}
+main.jsx:
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
+import { AuthProvider } from "./context/AuthContext";
+import App from "./App.jsx";
+import "./index.css";
+
+createRoot(document.getElementById("root")).render(
+    <StrictMode>
+        <BrowserRouter>
+            <AuthProvider>
+                <App />
+            </AuthProvider>
+        </BrowserRouter>
+    </StrictMode>,
+);
+/front/src/pages/:
+Login.jsx:
+import { useNavigate } from "react-router-dom";
+import { useContext, useState, useEffect } from "react";
+import { AuthContext } from "../context/AuthContext";
+import axios from "axios";
+
+export default function Login() {
+    const navigate = useNavigate();
+    const { login, token, checked } = useContext(AuthContext);
+    
+    const [username, setUsername] = useState("");
+    const [password, setPassword] = useState("");
+    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError("");
+        setLoading(true);
+
+        try {
+            // Conecta ao backend através do proxy Nginx
+            const res = await axios.post("/api/login", {
+                username,
+                password,
+            });
+            // Se der certo, salva o token
+            login(res.data.token);
+        } catch (err) {
+            console.error("Erro no login:", err);
+            // Tenta pegar a mensagem exata do backend ou usa uma genérica
+            const msg = err.response?.data?.error || "Falha ao conectar com o servidor.";
+            setError(msg);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        // Only redirect to profile after token has been validated on startup
+        if (token && checked) navigate("/profile");
+    }, [token, checked, navigate]);
+
+    return (
+        <div className="page-container">
+            <div className="card">
+                <h2>Acesso ao Sistema</h2>
+                
+                {error && <div className="alert alert-error">{error}</div>}
+                
+                <form onSubmit={handleSubmit}>
+                    <div className="form-group">
+                        <label htmlFor="username">Usuário</label>
+                        <input
+                            id="username"
+                            type="text"
+                            placeholder="Ex: admin"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            required
+                        />
+                    </div>
+                    
+                    <div className="form-group">
+                        <label htmlFor="password">Senha</label>
+                        <input
+                            id="password"
+                            type="password"
+                            placeholder="Sua senha"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                        />
+                    </div>
+                    
+                    <button type="submit" disabled={loading}>
+                        {loading ? "Entrando..." : "Entrar"}
+                    </button>
+                </form>
+            </div>
+        </div>
+    );
+}
+Profile.jsx:
+import { useContext, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { AuthContext } from "../context/AuthContext";
+import axios from "axios";
+
+export default function Profile() {
+    const navigate = useNavigate();
+    const [userData, setUserData] = useState({
+        username: "",
+        hostname: "",
+        session_id: "",
+        login_time: ""
+    });
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+    const { logout, token } = useContext(AuthContext);
+
+    useEffect(() => {
+        if (!token) {
+            console.log("token not found!");
+            logout();
+            return;
+        }
+
+        axios
+            .get("/api/profile", {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            })
+            .then((res) => {
+                setUserData({
+                    username: res.data.username,
+                    hostname: res.data.hostname,
+                    session_id: res.data.session_id || "",
+                    login_time: res.data.login_time || ""
+                });
+                setLoading(false);
+            })
+            .catch((err) => {
+                console.error(err);
+                setError("Erro ao carregar perfil");
+                setLoading(false);
+                logout();
+            });
+    }, [token]);
+
+    return (
+        <div className="page-container full-height-center">
+            {loading ? (
+                <h1 className="profile-message">Carregando...</h1>
+            ) : error ? (
+                <h1 className="profile-message" style={{ color: "red" }}>
+                    {error}
+                </h1>
+            ) : (
+                <div style={{ textAlign: "center" }}>
+                    <h1 className="profile-message">Bem-vindo, {userData.username}!</h1>
+                    <div style={{ marginTop: "2rem", fontSize: "1.1rem", lineHeight: 1.6 }}>
+                        <p>
+                            <strong>Servidor:</strong> {userData.hostname}
+                        </p>
+                        <p>
+                            <strong>Sessão:</strong> {userData.session_id || "-"}
+                        </p>
+                        <p>
+                            <strong>Data/Hora do login:</strong>{" "}
+                            {userData.login_time ? new Date(userData.login_time).toLocaleString() : "-"}
+                        </p>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+/front/src/contexto/:
+AuthContext.jsx:
+import { createContext, useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "axios";
+
+export const AuthContext = createContext();
+
+export const AuthProvider = ({ children }) => {
+    const navigate = useNavigate();
+
+    const [token, setToken] = useState(() => localStorage.getItem("token"));
+    const [checked, setChecked] = useState(false); // whether token validity was checked
+
+    // Persist token to localStorage
+    useEffect(() => {
+        if (token) localStorage.setItem("token", token);
+        else localStorage.removeItem("token");
+    }, [token]);
+
+    // On mount, validate token (if any) before allowing redirects
+    useEffect(() => {
+        let mounted = true;
+
+        const validate = async () => {
+            if (!token) {
+                if (mounted) setChecked(true);
+                return;
+            }
+
+            try {
+                await axios.get("/api/profile", {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                // token valid
+            } catch (err) {
+                // invalid token -> clear it
+                if (mounted) setToken(null);
+            } finally {
+                if (mounted) setChecked(true);
+            }
+        };
+
+        validate();
+
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
+    const login = (tokenValue) => {
+        setToken(tokenValue);
+        navigate("/profile");
+    };
+
+    const logout = () => {
+        setToken(null);
+        navigate("/login");
+    };
+
+    return (
+        <AuthContext.Provider value={{ token, login, logout, checked }}>
+            {children}
+        </AuthContext.Provider>
+    );
+};

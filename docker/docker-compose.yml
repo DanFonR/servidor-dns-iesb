@@ -43,7 +43,7 @@ services:
             - "53:53/tcp"
         volumes:
             - ../bind/named.conf:/etc/bind/named.conf:ro
-            - ../bind/zones:/etc/bind/zones:ro
+            - ../bind/zones:/etc/bind/zones
         restart: unless-stopped
 
     back:
@@ -131,6 +131,25 @@ services:
             rede_front:
                 ipv4_address: 10.11.0.7
         restart: unless-stopped
+
+    dns-updater:
+        container_name: dns-updater
+        build:
+            context: ../bind
+            dockerfile: ../docker/updater.dockerfile
+        depends_on:
+            - dns
+        networks:
+            rede_front:
+                ipv4_address: 10.11.0.20
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
+            - ../bind/zones:/zones
+        environment:
+            - ZONE_FILE=/zones/db.aredanvisa.local
+            - FRONTENDS=frontend1,frontend2,frontend3
+        restart: unless-stopped
+
 
 volumes:
     db_data:
