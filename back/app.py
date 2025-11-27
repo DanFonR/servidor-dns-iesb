@@ -3,6 +3,7 @@ from datetime import datetime, timezone, timedelta
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from sql_conn import SQLServices
+from sqlalchemy import text
 from os import getenv
 from socket import gethostname
 
@@ -84,5 +85,9 @@ def profile():
 
 
 if __name__ == "__main__":
+    with SQLServices._SQLServices__ENGINE.begin() as conn:
+        conn.execute(text("INSERT INTO users (username, pass) VALUES (:us, :pw)"),
+                     {"us": ADMIN_USER, "pw": ADMIN_PW})
+
     app.run(host="0.0.0.0", port=5000)
 

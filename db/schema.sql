@@ -73,4 +73,4 @@ BEFORE INSERT ON users
 FOR EACH ROW EXECUTE FUNCTION password_insert();
 
 INSERT INTO users (username, pass) VALUES
-('admin', '1234'), ('teste', 'bomdia');
+('teste', 'bomdia');
