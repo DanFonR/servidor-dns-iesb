@@ -4,7 +4,8 @@ ARG HOSTNAME
 
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+# use --legacy-peer-deps to avoid peer dependency resolution failures in CI/Docker
+RUN npm install --legacy-peer-deps
 COPY . .
 RUN npm run build
 
