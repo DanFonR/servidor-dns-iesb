@@ -59,7 +59,7 @@ export default function Profile() {
                     <h1 className="profile-message">Bem-vindo, {userData.username}!</h1>
                     <div style={{ marginTop: "2rem", fontSize: "1.1rem", lineHeight: 1.6 }}>
                         <p>
-                            <strong>Servidor:</strong> {userData.hostname}
+                            <strong>Servidor do Backend:</strong> {userData.hostname}
                         </p>
                         <p>
                             <strong>Sessão:</strong> {userData.session_id || "-"}
