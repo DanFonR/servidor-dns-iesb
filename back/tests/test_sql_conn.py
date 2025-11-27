@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 from datetime import datetime, timedelta, timezone
-from back.sql_conn import SQLServices
+from sql_conn import SQLServices
 
 
 @pytest.fixture
@@ -12,7 +12,7 @@ def mock_conn():
 @pytest.fixture
 def mock_engine(mock_conn):
     # Patch the private __ENGINE attribute correctly
-    with patch("back.sql_conn.SQLServices._SQLServices__ENGINE") as eng:
+    with patch("sql_conn.SQLServices._SQLServices__ENGINE") as eng:
         eng.connect.return_value.__enter__.return_value = mock_conn
         yield eng
 

@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from back.app import app
+from app import app
 import jwt
 from datetime import datetime, timedelta, timezone
 
@@ -14,10 +14,10 @@ def client():
 def test_login_success(client):
     mock_create = MagicMock(return_value="fake-session-id")
 
-    with patch("back.app.SQLServices.create_session", mock_create):
-        with patch("back.app.ADMIN_USER", "admin"):
-            with patch("back.app.ADMIN_PW", "123"):
-                with patch("back.app.BACKEND_KEY", "secret-key"):
+    with patch("app.SQLServices.create_session", mock_create):
+        with patch("app.ADMIN_USER", "admin"):
+            with patch("app.ADMIN_PW", "123"):
+                with patch("app.BACKEND_KEY", "secret-key"):
                     response = client.post("/login", json={
                         "username": "admin",
                         "password": "123"
@@ -30,8 +30,8 @@ def test_login_success(client):
 
 
 def test_login_invalid_credentials(client):
-    with patch("back.app.ADMIN_USER", "admin"):
-        with patch("back.app.ADMIN_PW", "123"):
+    with patch("app.ADMIN_USER", "admin"):
+        with patch("app.ADMIN_PW", "123"):
             response = client.post("/login", json={
                 "username": "wrong",
                 "password": "nope"
@@ -48,7 +48,7 @@ def test_profile_missing_token(client):
 
 
 def test_profile_invalid_jwt(client):
-    with patch("back.app.BACKEND_KEY", "secret-key"):
+    with patch("app.BACKEND_KEY", "secret-key"):
         response = client.get("/profile", headers={
             "Authorization": "Bearer invalid.jwt.token"
         })
@@ -60,8 +60,8 @@ def test_profile_invalid_jwt(client):
 def test_profile_session_not_found(client):
     token = jwt.encode({"user": "admin"}, "secret-key", algorithm="HS256")
 
-    with patch("back.app.BACKEND_KEY", "secret-key"):
-        with patch("back.app.SQLServices.get_session_by_token",
+    with patch("app.BACKEND_KEY", "secret-key"):
+        with patch("app.SQLServices.get_session_by_token",
                    MagicMock(return_value=(None, None, None, None))):
 
             response = client.get("/profile", headers={
@@ -75,8 +75,8 @@ def test_profile_session_not_found(client):
 def test_profile_session_username_mismatch(client):
     token = jwt.encode({"user": "admin"}, "secret-key", algorithm="HS256")
 
-    with patch("back.app.BACKEND_KEY", "secret-key"):
-        with patch("back.app.SQLServices.get_session_by_token",
+    with patch("app.BACKEND_KEY", "secret-key"):
+        with patch("app.SQLServices.get_session_by_token",
                    MagicMock(return_value=("sess1", "bob", datetime.now(timezone.utc), datetime.now(timezone.utc) + timedelta(hours=1)))):
 
             response = client.get("/profile", headers={
@@ -92,8 +92,8 @@ def test_profile_session_expired(client):
 
     expired = datetime.now(timezone.utc) - timedelta(hours=1)
 
-    with patch("back.app.BACKEND_KEY", "secret-key"):
-        with patch("back.app.SQLServices.get_session_by_token",
+    with patch("app.BACKEND_KEY", "secret-key"):
+        with patch("app.SQLServices.get_session_by_token",
                    MagicMock(return_value=("sess1", "admin", datetime.now(timezone.utc), expired))):
 
             response = client.get("/profile", headers={
@@ -109,9 +109,9 @@ def test_profile_success(client):
     expires = datetime.now(timezone.utc) + timedelta(hours=1)
     token = jwt.encode({"user": "admin"}, "secret-key", algorithm="HS256")
 
-    with patch("back.app.BACKEND_KEY", "secret-key"):
-        with patch("back.app.gethostname", return_value="host123"):
-            with patch("back.app.SQLServices.get_session_by_token",
+    with patch("app.BACKEND_KEY", "secret-key"):
+        with patch("app.gethostname", return_value="host123"):
+            with patch("app.SQLServices.get_session_by_token",
                        MagicMock(return_value=("sess1", "admin", created, expires))):
 
                 response = client.get("/profile", headers={

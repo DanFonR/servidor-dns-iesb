@@ -65,11 +65,11 @@ class SQLServices:
 
         is_correct: bool = False
 
-        with (cls.__ENGINE).connect() as conn:
-            is_correct = bool(conn.execute(text(
-                "SELECT (check_password(:username, :password))",
+        with cls.__ENGINE.connect() as conn:
+            is_correct = bool(conn.execute(
+                text("SELECT (check_password(:username, :password))"),
                 {"username": username, "password": password}
-            )).scalar())
+            ).scalar())
 
         return is_correct
 
